@@ -12,11 +12,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
-#skyline = { path = "../skyline-rs" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
-#skyline_smash = { path = "../skyline-smash" }#git = "https://github.com/ultimate-research/skyline-smash.git" }
-serde = { version = "1", features = ["derive"] }
+smush_discord_shared = { path = "./shared" }
 serde_json = "1"
+lazy_static = "1.4"
 
 [profile.dev]
 panic = "abort"
