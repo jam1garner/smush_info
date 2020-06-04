@@ -15,12 +15,15 @@ SECTIONS
 {
   . = 0;
 
-  .text : ALIGN(0x1000) {
+  .text : {
     HIDDEN(__text_start = .);
     *(.nro_header)
     KEEP(*(.text.jmp))
+    __text_start_2 = .;
 
     . = MAX(0x80, .);
+    
+    __text_start_3 = .;
 
     *(.text .text.*)
     *(.plt .plt.*)
