@@ -8,6 +8,12 @@ use std::time::Duration;
 use std::mem::{size_of, size_of_val};
 use std::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 
+use smash::app::{self};
+use smash::app::lua_bind::*;
+use smash::lib::lua_const::*;
+use smash::lua2cpp::{L2CFighterCommon, L2CFighterCommon_status_end_Dead, L2CFighterCommon_status_pre_Entry};
+use smash::lib::L2CValue;
+
 use serde::{Serialize, Deserialize};
 
 extern "C" {
@@ -189,8 +195,76 @@ fn start_server() -> Result<(), i64> {
     Ok(())
 }
 
+extern "C" {   
+    #[link_name = "\u{1}_ZN3app7utility8get_kindEPKNS_26BattleObjectModuleAccessorE"]
+    pub fn get_kind(module_accessor: &mut app::BattleObjectModuleAccessor) -> i32;
+
+    #[link_name = "\u{1}_ZN3app14sv_information8stage_idEv"]
+    pub fn stage_id() -> i32;
+}
+
+pub static mut FIGHTER_MANAGER_ADDR: usize = 0;
+
+pub unsafe fn set_player_information(module_accessor: &mut app::BattleObjectModuleAccessor) {
+    let entry_id = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as i32;
+    let player_num = entry_id as usize;
+    let mgr = *(FIGHTER_MANAGER_ADDR as *mut *mut app::FighterManager);
+    let fighter_information = FighterManager::get_fighter_information(
+        mgr, 
+        app::FighterEntryID(entry_id)
+    ) as *mut app::FighterInformation;
+
+    let character = get_kind(module_accessor) as u32;
+    let stock_count = FighterInformation::stock_count(fighter_information) as u32;
+    let dead_count = FighterInformation::dead_count(fighter_information, 0) as u32;
+    let is_cpu = FighterInformation::is_operation_cpu(fighter_information);
+
+    GAME_INFO.players[player_num].character.store(character, Ordering::SeqCst);
+    GAME_INFO.players[player_num].stocks.store(stock_count - dead_count, Ordering::SeqCst);
+    GAME_INFO.players[player_num].is_cpu.store(is_cpu, Ordering::SeqCst);
+}
+
+#[skyline::hook(replace = L2CFighterCommon_status_pre_Entry)]
+pub unsafe fn handle_pre_entry(fighter: &mut L2CFighterCommon) -> L2CValue {
+    let module_accessor = app::sv_system::battle_object_module_accessor(fighter.lua_state_agent);
+    set_player_information(module_accessor);
+
+    GAME_INFO.stage.store(stage_id() as u32, Ordering::SeqCst);
+
+    original!()(fighter)
+}
+
+#[skyline::hook(replace = L2CFighterCommon_status_end_Dead)]
+pub unsafe fn handle_end_dead(fighter: &mut L2CFighterCommon) -> L2CValue {
+    let module_accessor = app::sv_system::battle_object_module_accessor(fighter.lua_state_agent);
+    set_player_information(module_accessor);
+
+    original!()(fighter)
+}
+
+
+fn nro_main(nro: &skyline::nro::NroInfo<'_>) {
+    match nro.name {
+        "common" => {
+            skyline::install_hooks!(
+                handle_pre_entry,
+                handle_end_dead
+            );
+        }
+        _ => (),
+    }
+}
+
 #[skyline::main(name = "skyline_rs_template")]
 pub fn main() {
+    skyline::nro::add_hook(nro_main).unwrap();
+    unsafe {
+        skyline::nn::ro::LookupSymbol(
+            &mut FIGHTER_MANAGER_ADDR,
+            "_ZN3lib9SingletonIN3app14FighterManagerEE9instance_E\u{0}".as_bytes().as_ptr(),
+        );
+    }
+
     std::thread::spawn(||{
         loop {
             if let Err(98) = start_server() {
