@@ -8,13 +8,13 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use smash::app;
 use smash::app::lua_bind::*;
 use smash::lib::lua_const::*;
-use smash::lua2cpp::{L2CFighterCommon, L2CFighterCommon_status_end_Dead, L2CFighterCommon_status_pre_Entry};
+use smash::lua2cpp::{L2CFighterCommon, L2CFighterCommon_status_pre_Rebirth, L2CFighterCommon_status_pre_Entry};
 use smash::lib::L2CValue;
 
 use smush_discord_shared::{Info, Player, Stage};
 
 mod conversions;
-use conversions::kind_to_char;
+use conversions::{kind_to_char, stage_id_to_stage};
 
 fn send_bytes(socket: i32, bytes: &[u8]) -> Result<(), i64> {
     unsafe {
@@ -121,7 +121,7 @@ fn start_server() -> Result<(), i64> {
     Ok(())
 }
 
-extern "C" {   
+extern "C" {
     #[link_name = "\u{1}_ZN3app7utility8get_kindEPKNS_26BattleObjectModuleAccessorE"]
     pub fn get_kind(module_accessor: &mut app::BattleObjectModuleAccessor) -> i32;
 
@@ -142,11 +142,11 @@ pub unsafe fn set_player_information(module_accessor: &mut app::BattleObjectModu
 
     let character = kind_to_char(get_kind(module_accessor)) as u32;
     let stock_count = FighterInformation::stock_count(fighter_information) as u32;
-    let dead_count = FighterInformation::dead_count(fighter_information, 0) as u32;
+    //let dead_count = FighterInformation::dead_count(fighter_information, 0) as u32;
     let is_cpu = FighterInformation::is_operation_cpu(fighter_information);
 
     GAME_INFO.players[player_num].character.store(character, Ordering::SeqCst);
-    GAME_INFO.players[player_num].stocks.store(stock_count - dead_count, Ordering::SeqCst);
+    GAME_INFO.players[player_num].stocks.store(stock_count, Ordering::SeqCst);
     GAME_INFO.players[player_num].is_cpu.store(is_cpu, Ordering::SeqCst);
 }
 
@@ -155,13 +155,13 @@ pub unsafe fn handle_pre_entry(fighter: &mut L2CFighterCommon) -> L2CValue {
     let module_accessor = app::sv_system::battle_object_module_accessor(fighter.lua_state_agent);
     set_player_information(module_accessor);
 
-    GAME_INFO.stage.store(stage_id() as u32, Ordering::SeqCst);
+    GAME_INFO.stage.store(stage_id_to_stage(stage_id()) as u32, Ordering::SeqCst);
 
     original!()(fighter)
 }
 
-#[skyline::hook(replace = L2CFighterCommon_status_end_Dead)]
-pub unsafe fn handle_end_dead(fighter: &mut L2CFighterCommon) -> L2CValue {
+#[skyline::hook(replace = L2CFighterCommon_status_pre_Rebirth)]
+pub unsafe fn handle_pre_rebirth(fighter: &mut L2CFighterCommon) -> L2CValue {
     let module_accessor = app::sv_system::battle_object_module_accessor(fighter.lua_state_agent);
     set_player_information(module_accessor);
 
@@ -173,14 +173,14 @@ fn nro_main(nro: &skyline::nro::NroInfo<'_>) {
         "common" => {
             skyline::install_hooks!(
                 handle_pre_entry,
-                handle_end_dead
+                handle_pre_rebirth
             );
         }
         _ => (),
     }
 }
 
-#[skyline::main(name = "skyline_rs_template")]
+#[skyline::main(name = "discord_server")]
 pub fn main() {
     skyline::nro::add_hook(nro_main).unwrap();
     unsafe {

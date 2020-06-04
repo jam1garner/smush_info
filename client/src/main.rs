@@ -28,7 +28,7 @@ fn get_info(bytes: &[u8]) -> Info {
 }
 
 fn main() {
-    let mut packets = BufReader::new(TcpStream::connect((get_home_ip(), 4242u16)).unwrap()).split(b'\n');
+    let packets = BufReader::new(TcpStream::connect((get_home_ip(), 4242u16)).unwrap()).split(b'\n');
 
     for packet in packets {
         println!("{:#?}", get_info(&packet.unwrap()));
