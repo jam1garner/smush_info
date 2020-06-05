@@ -3,6 +3,8 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Info {
+    pub remaining_frames: AtomicU32,
+    pub is_match: AtomicBool,
     pub stage: AtomicU32,
     pub players: [Player; 8]
 }
@@ -11,6 +13,7 @@ pub struct Info {
 pub struct Player {
     pub character: AtomicU32,
     pub stocks: AtomicU32,
+    pub damage: AtomicU32,
     pub is_cpu: AtomicBool
 }
 
@@ -465,6 +468,7 @@ impl Player {
     pub const fn new() -> Self {
         Self {
             character: AtomicU32::new(Character::None as u32),
+            damage: AtomicU32::new(0),
             stocks: AtomicU32::new(0),
             is_cpu: AtomicBool::new(false)
         }
