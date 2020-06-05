@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 use smash::app;
 use smash::app::lua_bind::*;
 use smash::lib::lua_const::*;
-use smash::lua2cpp::{L2CFighterCommon, L2CFighterCommon_status_pre_Rebirth, L2CFighterCommon_status_pre_Entry};
+use smash::lua2cpp::{L2CFighterCommon, L2CFighterCommon_status_pre_Rebirth, L2CFighterCommon_status_pre_Entry, L2CFighterCommon_sub_damage_uniq_process_init};
 use smash::lib::L2CValue;
 
 use smush_discord_shared::{Info, Player, Stage};
@@ -27,7 +27,7 @@ extern "C" {
     pub fn stage_id() -> i32;
 
     #[link_name = "\u{1}_ZN3app14sv_information27get_remaining_time_as_frameEv"]
-    pub fn get_remaining_time_as_frame() -> f32;
+    pub fn get_remaining_time_as_frame() -> u32;
 }
 
 fn send_bytes(socket: i32, bytes: &[u8]) -> Result<(), i64> {
@@ -117,13 +117,13 @@ fn start_server() -> Result<(), i64> {
         );
 
         loop {
-            if is_normal_melee() {
-                GAME_INFO.remaining_frames.store(get_remaining_time_as_frame() as u32, Ordering::SeqCst);
-                GAME_INFO.is_match.store(true, Ordering::SeqCst);
-            } else {
-                GAME_INFO.remaining_frames.store(-1.0 as u32, Ordering::SeqCst);
-                GAME_INFO.is_match.store(false, Ordering::SeqCst);
-            }
+            // if is_normal_melee() {
+            //     GAME_INFO.remaining_frames.store(get_remaining_time_as_frame() as u32, Ordering::SeqCst);
+            //     GAME_INFO.is_match.store(true, Ordering::SeqCst);
+            // } else {
+            //     GAME_INFO.remaining_frames.store(-1.0 as u32, Ordering::SeqCst);
+            //     GAME_INFO.is_match.store(false, Ordering::SeqCst);
+            // }
 
             let mut data = serde_json::to_vec(&GAME_INFO).unwrap();
             data.push(b'\n');
@@ -165,6 +165,14 @@ pub unsafe fn set_player_information(module_accessor: &mut app::BattleObjectModu
     GAME_INFO.players[player_num].damage.store(damage as u32, Ordering::SeqCst);
     GAME_INFO.players[player_num].stocks.store(stock_count, Ordering::SeqCst);
     GAME_INFO.players[player_num].is_cpu.store(is_cpu, Ordering::SeqCst);
+
+    if is_normal_melee() {
+        GAME_INFO.remaining_frames.store(get_remaining_time_as_frame() as u32, Ordering::SeqCst);
+        GAME_INFO.is_match.store(true, Ordering::SeqCst);
+    } else {
+        GAME_INFO.remaining_frames.store(-1.0 as u32, Ordering::SeqCst);
+        GAME_INFO.is_match.store(false, Ordering::SeqCst);
+    }
 }
 
 #[skyline::hook(replace = L2CFighterCommon_status_pre_Entry)]
@@ -185,12 +193,21 @@ pub unsafe fn handle_pre_rebirth(fighter: &mut L2CFighterCommon) -> L2CValue {
     original!()(fighter)
 }
 
+#[skyline::hook(replace = L2CFighterCommon_sub_damage_uniq_process_init)]
+pub unsafe fn handle_sub_damage_uniq_process_init(fighter: &mut L2CFighterCommon) -> L2CValue {
+    let module_accessor = app::sv_system::battle_object_module_accessor(fighter.lua_state_agent);
+    set_player_information(module_accessor);
+
+    original!()(fighter)
+}
+
 fn nro_main(nro: &skyline::nro::NroInfo<'_>) {
     match nro.name {
         "common" => {
             skyline::install_hooks!(
                 handle_pre_entry,
-                handle_pre_rebirth
+                handle_pre_rebirth,
+                handle_sub_damage_uniq_process_init
             );
         }
         _ => (),
