@@ -43,7 +43,7 @@ fn send_bytes(socket: i32, bytes: &[u8]) -> Result<(), i64> {
 
 
 static GAME_INFO: Info = Info {
-    remaining_frames: AtomicU32::new(-1.0 as u32),
+    remaining_frames: AtomicU32::new(u32::MAX),
     is_match: AtomicBool::new(false),
     stage: AtomicU32::new(Stage::None as u32),
     players: [
@@ -162,7 +162,7 @@ pub unsafe fn set_player_information(module_accessor: &mut app::BattleObjectModu
     let is_cpu = FighterInformation::is_operation_cpu(fighter_information);
 
     GAME_INFO.players[player_num].character.store(character, Ordering::SeqCst);
-    GAME_INFO.players[player_num].damage.store(damage as u32, Ordering::SeqCst);
+    GAME_INFO.players[player_num].damage.store(damage, Ordering::SeqCst);
     GAME_INFO.players[player_num].stocks.store(stock_count, Ordering::SeqCst);
     GAME_INFO.players[player_num].is_cpu.store(is_cpu, Ordering::SeqCst);
 
@@ -170,7 +170,7 @@ pub unsafe fn set_player_information(module_accessor: &mut app::BattleObjectModu
         GAME_INFO.remaining_frames.store(get_remaining_time_as_frame() as u32, Ordering::SeqCst);
         GAME_INFO.is_match.store(true, Ordering::SeqCst);
     } else {
-        GAME_INFO.remaining_frames.store(-1.0 as u32, Ordering::SeqCst);
+        GAME_INFO.remaining_frames.store(u32::MAX, Ordering::SeqCst);
         GAME_INFO.is_match.store(false, Ordering::SeqCst);
     }
 }

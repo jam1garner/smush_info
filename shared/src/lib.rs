@@ -1,5 +1,10 @@
-use std::sync::atomic::{AtomicU32, AtomicBool};
+#![feature(const_fn)]
+#![feature(const_fn_union)]
+use std::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 use serde::{Serialize, Deserialize};
+
+mod atomic_f32;
+pub use atomic_f32::AtomicF32;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Info {
@@ -13,11 +18,12 @@ pub struct Info {
 pub struct Player {
     pub character: AtomicU32,
     pub stocks: AtomicU32,
-    pub damage: AtomicU32,
+    pub damage: AtomicF32,
     pub is_cpu: AtomicBool
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u32)]
 pub enum Character {
     None = 0,
     Bayonetta,	
@@ -110,11 +116,13 @@ pub enum Character {
     Younglink,	
     Zelda,	
     Zenigame,
+    Max,
 }
 
 // see `Character` for how this should be used
 #[allow(non_camel_case_types)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u32)]
 pub enum Stage {
     None = 0,
     Animal_City,
@@ -461,16 +469,140 @@ pub enum Stage {
     Zelda_Temple,
     Zelda_Tower,
     Zelda_Train,
-    _75m
+    _75m,
+    Max
+}
+
+impl Info {
+    pub fn remaining_frames(&self) -> u32 {
+        self.remaining_frames.load(Ordering::SeqCst)
+    }
+
+    pub fn is_match(&self) -> bool {
+        self.is_match.load(Ordering::SeqCst)
+    }
+
+    pub fn stage(&self) -> Stage {
+        let s = self.stage.load(Ordering::SeqCst);
+        if (0..Stage::Max as u32).contains(&s) {
+            unsafe {
+                core::mem::transmute(s)
+            }
+        } else {
+            Stage::None
+        }
+    }
 }
 
 impl Player {
     pub const fn new() -> Self {
         Self {
             character: AtomicU32::new(Character::None as u32),
-            damage: AtomicU32::new(0),
+            damage: AtomicF32::new(0.),
             stocks: AtomicU32::new(0),
             is_cpu: AtomicBool::new(false)
         }
+    }
+
+    pub fn character(&self) -> Character {
+        let c = self.character.load(Ordering::SeqCst);
+        if (0..Character::Max as u32).contains(&c) {
+            unsafe {
+                core::mem::transmute(c)
+            }
+        } else {
+            Character::None
+        }
+    }
+
+    pub fn damage(&self) -> f32 {
+        self.damage.load(Ordering::SeqCst)
+    }
+
+    pub fn stocks(&self) -> u32 {
+        self.stocks.load(Ordering::SeqCst)
+    }
+
+    pub fn is_cpu(&self) -> bool {
+        self.is_cpu.load(Ordering::SeqCst)
+    }
+}
+
+#[cfg(test)]
+mod shared_tests {
+    use super::*;
+
+    #[test]
+    fn character_test() {
+        // Test Character out of bounds
+        let player = Player {
+            character: AtomicU32::new(Character::Max as u32),
+            ..Player::new()
+        };
+
+        // Invalid character
+        assert_eq!(player.character(), Character::None);
+        
+        let player = Player {
+            character: AtomicU32::new(u32::MAX),
+            ..Player::new()
+        };
+
+        // Invalid character
+        assert_eq!(player.character(), Character::None);
+        
+        let player = Player {
+            character: AtomicU32::new(Character::Zenigame as u32),
+            ..Player::new()
+        };
+
+        // Valid character
+        assert_eq!(player.character(), Character::Zenigame);
+    }
+
+    #[test]
+    fn stage_test() {
+        const TEST_INFO: Info = Info {
+            is_match: AtomicBool::new(true),
+            remaining_frames: AtomicU32::new(3),
+            stage: AtomicU32::new(Stage::Plankton as u32),
+            players: [
+                Player::new(),
+                Player::new(),
+                Player::new(),
+                Player::new(),
+                Player::new(),
+                Player::new(),
+                Player::new(),
+                Player::new(),
+            ]
+        };
+
+        assert_eq!(TEST_INFO.stage(), Stage::Plankton);
+        assert_eq!(TEST_INFO.remaining_frames(), 3);
+        assert!(TEST_INFO.is_match());
+
+        let new_info = Info {
+            stage: AtomicU32::new(Stage::Max as u32),
+            ..TEST_INFO
+        };
+
+        // test invalid state
+        assert_eq!(new_info.stage(), Stage::None);
+        
+        let new_info = Info {
+            stage: AtomicU32::new(u32::MAX),
+            ..TEST_INFO
+        };
+
+        // test invalid state
+        assert_eq!(new_info.stage(), Stage::None);
+        
+        let new_info = Info {
+            stage: AtomicU32::new(Stage::_75m as u32),
+            ..TEST_INFO
+        };
+
+        assert_eq!(new_info.stage(), Stage::_75m);
     }
 }
