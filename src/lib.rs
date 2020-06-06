@@ -17,9 +17,6 @@ mod conversions;
 use conversions::{kind_to_char, stage_id_to_stage};
 
 extern "C" {
-    #[link_name = "\u{1}_ZN3app7ai_rule15is_normal_meleeEv"]
-    pub fn is_normal_melee() -> bool;
-
     #[link_name = "\u{1}_ZN3app7utility8get_kindEPKNS_26BattleObjectModuleAccessorE"]
     pub fn get_kind(module_accessor: &mut app::BattleObjectModuleAccessor) -> i32;
 
@@ -117,13 +114,17 @@ fn start_server() -> Result<(), i64> {
         );
 
         loop {
-            // if is_normal_melee() {
-            //     GAME_INFO.remaining_frames.store(get_remaining_time_as_frame() as u32, Ordering::SeqCst);
-            //     GAME_INFO.is_match.store(true, Ordering::SeqCst);
-            // } else {
-            //     GAME_INFO.remaining_frames.store(-1.0 as u32, Ordering::SeqCst);
-            //     GAME_INFO.is_match.store(false, Ordering::SeqCst);
-            // }
+            let mgr = *(FIGHTER_MANAGER_ADDR as *mut *mut app::FighterManager);
+            let is_match = FighterManager::entry_count(mgr) > 0 &&
+                !FighterManager::is_result_mode(mgr);
+
+            if is_match {
+                GAME_INFO.remaining_frames.store(get_remaining_time_as_frame(), Ordering::SeqCst);
+                GAME_INFO.is_match.store(true, Ordering::SeqCst);
+            } else {
+                GAME_INFO.remaining_frames.store(-1.0 as u32, Ordering::SeqCst);
+                GAME_INFO.is_match.store(false, Ordering::SeqCst);
+            }
 
             let mut data = serde_json::to_vec(&GAME_INFO).unwrap();
             data.push(b'\n');
@@ -165,14 +166,6 @@ pub unsafe fn set_player_information(module_accessor: &mut app::BattleObjectModu
     GAME_INFO.players[player_num].damage.store(damage, Ordering::SeqCst);
     GAME_INFO.players[player_num].stocks.store(stock_count, Ordering::SeqCst);
     GAME_INFO.players[player_num].is_cpu.store(is_cpu, Ordering::SeqCst);
-
-    if is_normal_melee() {
-        GAME_INFO.remaining_frames.store(get_remaining_time_as_frame() as u32, Ordering::SeqCst);
-        GAME_INFO.is_match.store(true, Ordering::SeqCst);
-    } else {
-        GAME_INFO.remaining_frames.store(u32::MAX, Ordering::SeqCst);
-        GAME_INFO.is_match.store(false, Ordering::SeqCst);
-    }
 }
 
 #[skyline::hook(replace = L2CFighterCommon_status_pre_Entry)]
