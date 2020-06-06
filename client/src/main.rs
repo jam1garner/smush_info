@@ -2,6 +2,7 @@ use smush_discord_shared::{Info, Stage};
 use std::net::{TcpStream, IpAddr};
 use std::io::{BufRead, BufReader};
 use rustcord::{Rustcord, EventHandlers, User, RichPresenceBuilder, RichPresence};
+use std::time::{Duration, SystemTime};
 
 pub struct Handlers;
 
@@ -62,6 +63,12 @@ fn info_to_presence(info: &Info) -> RichPresence {
         )
         .large_image_key(&stage_to_image_key(info.stage()))
         .large_image_text(&info.stage().into_normal().to_string())
+        .end_time(
+            SystemTime::now()
+                + Duration::from_secs_f64(
+                    (info.remaining_frames() as f64) / 60.0
+                )
+        )
         .build()
 }
 
