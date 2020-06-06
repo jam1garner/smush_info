@@ -46,30 +46,36 @@ fn stage_to_image_key(stage: Stage) -> String {
         &name["End_".len()..]
     } else {
         name
-    }.to_owned()
+    }.to_owned().to_lowercase()
 }
 
 fn info_to_presence(info: &Info) -> RichPresence {
-    RichPresenceBuilder::new()
-        .state("In Match")
-        .details(
-            &format!(
-                "{} {} - {} {}",
-                info.players[0].character(),
-                info.players[0].stocks(),
-                info.players[1].stocks(),
-                info.players[1].character(),
-            )
-        )
-        .large_image_key(&stage_to_image_key(info.stage()))
-        .large_image_text(&info.stage().into_normal().to_string())
-        .end_time(
-            SystemTime::now()
-                + Duration::from_secs_f64(
-                    (info.remaining_frames() as f64) / 60.0
+    if info.is_match() {
+        RichPresenceBuilder::new()
+            .state("In Menus")
+            .build()
+    } else {
+        RichPresenceBuilder::new()
+            .state("In Match")
+            .details(
+                &format!(
+                    "{} {} - {} {}",
+                    info.players[0].character(),
+                    info.players[0].stocks(),
+                    info.players[1].stocks(),
+                    info.players[1].character(),
                 )
-        )
-        .build()
+            )
+            .large_image_key(&stage_to_image_key(info.stage()))
+            .large_image_text(&info.stage().into_normal().to_string())
+            .end_time(
+                SystemTime::now()
+                    + Duration::from_secs_f64(
+                        (info.remaining_frames() as f64) / 60.0
+                    )
+            )
+            .build()
+    }
 }
 
 fn main() {
