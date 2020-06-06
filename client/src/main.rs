@@ -52,10 +52,6 @@ fn stage_to_image_key(stage: Stage) -> String {
 fn info_to_presence(info: &Info) -> RichPresence {
     if info.is_match() {
         RichPresenceBuilder::new()
-            .state("In Menus")
-            .build()
-    } else {
-        RichPresenceBuilder::new()
             .state("In Match")
             .details(
                 &format!(
@@ -74,6 +70,11 @@ fn info_to_presence(info: &Info) -> RichPresence {
                         (info.remaining_frames() as f64) / 60.0
                     )
             )
+            .build()
+    } else {
+        RichPresenceBuilder::new()
+            .state("In Menus")
+            .large_image_key("smash_ball")
             .build()
     }
 }
