@@ -161,11 +161,13 @@ pub unsafe fn set_player_information(module_accessor: &mut app::BattleObjectModu
     let damage = DamageModule::damage(module_accessor, 0);
     let stock_count = FighterInformation::stock_count(fighter_information) as u32;
     let is_cpu = FighterInformation::is_operation_cpu(fighter_information);
+    let skin = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_COLOR) + 1; //returns costume slot 0-indexed... add 1 here to match costume slot number from in-game
 
     GAME_INFO.players[player_num].character.store(character, Ordering::SeqCst);
     GAME_INFO.players[player_num].damage.store(damage, Ordering::SeqCst);
     GAME_INFO.players[player_num].stocks.store(stock_count, Ordering::SeqCst);
     GAME_INFO.players[player_num].is_cpu.store(is_cpu, Ordering::SeqCst);
+    GAME_INFO.players[player_num].skin.store(skin, Ordering::SeqCst);
 }
 
 #[skyline::hook(replace = L2CFighterCommon_status_pre_Entry)]
