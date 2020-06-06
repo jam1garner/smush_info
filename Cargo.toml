@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 [dependencies]
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
-smush_discord_shared = { path = "./shared" }
+smush_discord_shared = { git = "https://github.com/jam1garner/smush_info_shared.git" }
 serde_json = "1"
 lazy_static = "1.4"
 
