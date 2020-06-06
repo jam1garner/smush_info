@@ -10,3 +10,4 @@ edition = "2018"
 smush_discord_shared = { path = "../shared" }
 serde_json = "1"
 dirs = "2"
+rustcord = { git = "https://github.com/tcyrus/rustcord.git", branch = "patch-1" }
