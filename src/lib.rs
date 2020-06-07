@@ -219,11 +219,10 @@ pub fn main() {
 
     std::thread::spawn(||{
         loop {
+            std::thread::sleep(std::time::Duration::from_secs(13));
             if let Err(98) = start_server() {
                 break
             }
         }
     });
-    //let mut sock = TcpStream::connect("192.168.86.46:5001").unwrap();
-    //sock.write(b"test test test").unwrap();
 }
