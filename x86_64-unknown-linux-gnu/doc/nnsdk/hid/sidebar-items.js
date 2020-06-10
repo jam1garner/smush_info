@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["GetNpadStates",""],["GetNpadStyleSet",""],["InitializeNpad",""],["SetSupportedNpadIdType",""],["SetSupportedNpadStyleSet",""]],"struct":[["ControllerSupportArg",""],["ControllerSupportResultInfo",""],["NpadHandheldState",""],["NpadStyleTag",""]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["hex_dump_ptr",""],["hex_dump_str",""],["log",""]],"struct":[["HexDump","Format wrapper used for displaying a [`Sized`] type to hex with 8 byte rows"]]});

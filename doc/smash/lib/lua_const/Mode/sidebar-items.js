@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["ATTACK",""],["AWAY",""],["CHASE",""],["CHILD_RET",""],["DEFEND",""],["DRAGOON",""],["DROP_CHS",""],["DROP_GET",""],["FINAL",""],["LADDER",""],["REFUGE",""],["RETURN",""],["STAGE_GIMMICK",""],["STAGE_TGT_CHS",""]]});

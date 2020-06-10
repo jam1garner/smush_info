@@ -1,0 +1,12 @@
+var ALIASES = {};
+ALIASES["discord_server"] = {};
+ALIASES["itoa"] = {};
+ALIASES["lazy_static"] = {};
+ALIASES["libc"] = {};
+ALIASES["nnsdk"] = {};
+ALIASES["ryu"] = {};
+ALIASES["serde"] = {};
+ALIASES["serde_json"] = {};
+ALIASES["skyline"] = {};
+ALIASES["smash"] = {};
+ALIASES["smush_discord_shared"] = {};
