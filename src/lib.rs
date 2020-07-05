@@ -95,7 +95,7 @@ fn start_server() -> Result<(), i64> {
 
         let mut addr_len: u32 = 0;
 
-        tcp_socket = accept(
+        let mut w_tcp_socket = accept(
             tcp_socket,
             &server_addr as *const sockaddr_in as *mut sockaddr,
             &mut addr_len,
@@ -116,7 +116,19 @@ fn start_server() -> Result<(), i64> {
 
             let mut data = serde_json::to_vec(&GAME_INFO).unwrap();
             data.push(b'\n');
-            send_bytes(tcp_socket, &data).unwrap();
+            match send_bytes(w_tcp_socket, &data) {
+                Ok(_) => (),
+                Err(32) => {
+                    w_tcp_socket = accept(
+                        tcp_socket,
+                        &server_addr as *const sockaddr_in as *mut sockaddr,
+                        &mut addr_len,
+                    );
+                }
+                Err(e) => {
+                    println!("send_bytes errno = {}", e);
+                }
+            }
             std::thread::sleep(Duration::from_millis(500));
         }
         /*let magic = recv_bytes(tcp_socket, 4).unwrap();
@@ -251,7 +263,7 @@ pub fn main() {
 
     std::thread::spawn(||{
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(13));
+            std::thread::sleep(std::time::Duration::from_secs(5));
             if let Err(98) = start_server() {
                 break
             }
