@@ -154,9 +154,12 @@ fn some_strlen_thing(x: usize) -> usize {
         if !y.is_null() {
             let text = getRegionAddress(Region::Text) as u64;
             let lr_offset = *get_fp().offset(1) - text;
+            let arena_id = from_c_str(*y);
             if lr_offset == 0x2112e20 {
                 let arena_id = from_c_str(*y);
-                GAME_INFO.arena_id.store_str(Some(&arena_id), Ordering::SeqCst);
+                if arena_id.len() == 5 {
+                    GAME_INFO.arena_id.store_str(Some(&arena_id), Ordering::SeqCst);
+                }
             }
         }
     }
@@ -164,7 +167,7 @@ fn some_strlen_thing(x: usize) -> usize {
 }
 
 #[skyline::hook(offset = 0xd7140)]
-fn close_arena_test(param_1: usize) {
+fn close_arena(param_1: usize) {
     GAME_INFO.arena_id.store_str(None, Ordering::SeqCst);
     original!()(param_1);
 }
@@ -241,6 +244,10 @@ pub fn main() {
             "_ZN3lib9SingletonIN3app14FighterManagerEE9instance_E\u{0}".as_bytes().as_ptr(),
         );
     }
+    skyline::install_hooks!(
+        some_strlen_thing,
+        close_arena
+    );
 
     std::thread::spawn(||{
         loop {
