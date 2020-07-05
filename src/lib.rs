@@ -1,9 +1,11 @@
-#![feature(proc_macro_hygiene)]
+#![feature(proc_macro_hygiene, asm)]
 
+use skyline::hooks::{getRegionAddress, Region};
+use skyline::from_c_str;
 use skyline::libc::*;
 use std::time::Duration;
 use std::mem::size_of_val;
-use std::sync::atomic::{AtomicU32, AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 
 use smash::app;
 use smash::app::lua_bind::*;
@@ -11,7 +13,7 @@ use smash::lib::lua_const::*;
 use smash::lua2cpp::{L2CFighterCommon, L2CFighterCommon_status_pre_Rebirth, L2CFighterCommon_status_pre_Entry, L2CFighterCommon_sub_damage_uniq_process_init};
 use smash::lib::L2CValue;
 
-use smush_discord_shared::{Info, Player, Stage};
+use smush_discord_shared::Info;
 
 mod conversions;
 use conversions::{kind_to_char, stage_id_to_stage};
@@ -39,21 +41,7 @@ fn send_bytes(socket: i32, bytes: &[u8]) -> Result<(), i64> {
 }
 
 
-static GAME_INFO: Info = Info {
-    remaining_frames: AtomicU32::new(u32::MAX),
-    is_match: AtomicBool::new(false),
-    stage: AtomicU32::new(Stage::None as u32),
-    players: [
-        Player::new(),
-        Player::new(),
-        Player::new(),
-        Player::new(),
-        Player::new(),
-        Player::new(),
-        Player::new(),
-        Player::new()
-    ]
-};
+static GAME_INFO: Info = Info::new();
 
 #[allow(unreachable_code)]
 fn start_server() -> Result<(), i64> {
@@ -144,6 +132,41 @@ fn start_server() -> Result<(), i64> {
     }
 
     Ok(())
+}
+
+pub fn offset_to_addr(offset: usize) -> *const () {
+    unsafe {
+        (getRegionAddress(Region::Text) as *const u8).offset(offset as isize) as _
+    }
+}
+
+#[inline(always)]
+fn get_fp() -> *const u64 {
+    let r;
+    unsafe { asm!("mov $0, x29" : "=r"(r) ::: "volatile") }
+    r
+}
+
+#[skyline::hook(offset = 0x1b5270)]
+fn some_strlen_thing(x: usize) -> usize {
+    unsafe {
+        let y = (x + 0x18) as *const *const c_char;
+        if !y.is_null() {
+            let text = getRegionAddress(Region::Text) as u64;
+            let lr_offset = *get_fp().offset(1) - text;
+            if lr_offset == 0x2112e20 {
+                let arena_id = from_c_str(*y);
+                GAME_INFO.arena_id.store_str(Some(&arena_id), Ordering::SeqCst);
+            }
+        }
+    }
+    original!()(x)
+}
+
+#[skyline::hook(offset = 0xd7140)]
+fn close_arena_test(param_1: usize) {
+    GAME_INFO.arena_id.store_str(None, Ordering::SeqCst);
+    original!()(param_1);
 }
 
 pub static mut FIGHTER_MANAGER_ADDR: usize = 0;
