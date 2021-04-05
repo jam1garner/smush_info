@@ -18,6 +18,10 @@ use smush_discord_shared::Info;
 mod conversions;
 use conversions::{kind_to_char, stage_id_to_stage};
 
+static mut OFFSET1 : usize = 0x1b52a0;
+static mut OFFSET2 : usize = 0x225dc2c;
+static mut OFFSET3 : usize = 0xd7140;
+
 extern "C" {
     #[link_name = "\u{1}_ZN3app7utility8get_kindEPKNS_26BattleObjectModuleAccessorE"]
     pub fn get_kind(module_accessor: &mut app::BattleObjectModuleAccessor) -> i32;
@@ -49,10 +53,11 @@ fn start_server() -> Result<(), i64> {
         let server_addr: sockaddr_in = sockaddr_in {
             sin_family: AF_INET as _,
             sin_port: 4242u16.to_be(),
+            sin_len: 4,
             sin_addr: in_addr {
                 s_addr: INADDR_ANY as _,
             },
-            sin_zero: 0,
+            sin_zero: [0; 8],
         };
 
         let mut tcp_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -159,7 +164,7 @@ fn get_fp() -> *const u64 {
     r
 }
 
-#[skyline::hook(offset = 0x1b5270)]
+#[skyline::hook(offset = OFFSET1)] //1
 fn some_strlen_thing(x: usize) -> usize {
     unsafe {
         let y = (x + 0x18) as *const *const c_char;
@@ -167,7 +172,7 @@ fn some_strlen_thing(x: usize) -> usize {
             let text = getRegionAddress(Region::Text) as u64;
             let lr_offset = *get_fp().offset(1) - text;
             let arena_id = from_c_str(*y);
-            if lr_offset == 0x2112e20 {
+            if lr_offset == OFFSET2 as u64 { //2
                 let arena_id = from_c_str(*y);
                 if arena_id.len() == 5 {
                     GAME_INFO.arena_id.store_str(Some(&arena_id), Ordering::SeqCst);
@@ -178,10 +183,70 @@ fn some_strlen_thing(x: usize) -> usize {
     original!()(x)
 }
 
-#[skyline::hook(offset = 0xd7140)]
+static OFFSET1_SEARCH_CODE: &[u8] = &[ //add 38
+    0x81, 0x0e, 0x40, 0xf9, //.text:00000071001B5268                 LDR             X1, [X20,#0x18] ; src
+    0xe0, 0x03, 0x16, 0xaa  //.text:00000071001B526C                 MOV             X0, X22 ; dest
+                            //.text:00000071001B5270                 MOV             X2, X21 ; n
+                            //.text:00000071001B5274                 BL              memcpy_0
+                            //.text:00000071001B5278                 LDR             X8, [X19,#0x18]
+                            //.text:00000071001B527C                 STRB            WZR, [X8,X21]
+                            //.text:00000071001B5280                 LDP             X29, X30, [SP,#0x30+var_s0]
+                            //.text:00000071001B5284                 LDP             X20, X19, [SP,#0x30+var_10]
+                            //.text:00000071001B5288                 LDP             X22, X21, [SP,#0x30+var_20]
+                            //.text:00000071001B528C                 LDP             X24, X23, [SP+0x30+var_30],#0x40
+                            //.text:00000071001B5290                 RET
+                            //below is req function
+                            //.text:00000071001B52A0                 LDR             X0, [X0,#0x18] ; s
+                            //.text:00000071001B52A4                 B               strlen_0
+];
+
+static OFFSET2_SEARCH_CODE: &[u8] = &[ //add -C, just below is the address needed
+                            //.text:000000710225DC2C                 MOV             X0, X20 ; this
+                            //.text:000000710225DC30                 BL              _ZNSt3__115recursive_mutex6unlockEv_0 ; std::__1::recursive_mutex::unlock(void)
+                            //.text:000000710225DC34                 LDR             X0, [X21]
+    0x60, 0x02, 0x00, 0xb4, //.text:000000710225DC38                 CBZ             X0, loc_710225DC84
+    0x14, 0x58, 0x40, 0xa9  //.text:000000710225DC3C                 LDP             X20, X22, [X0]
+                            //.text:000000710225DC40                 LDR             X8, [X0,#0x10]!
+                            //.text:000000710225DC44                 LDR             X8, [X8]
+                            //.text:000000710225DC48                 BLR             X8
+                            //.text:000000710225DC4C                 LDR             X8, [X27,#0x30]
+                            //.text:000000710225DC50                 LDR             X8, [X8,#8]
+                            //.text:000000710225DC54                 STR             X8, [X27,#0x20]
+                            //.text:000000710225DC58                 CBNZ            X8, loc_710225DC64
+                            //.text:000000710225DC5C                 LDR             X8, [X27,#0x28]
+                            //.text:000000710225DC60                 STR             X8, [X27,#0x20]
+];
+
+#[skyline::hook(offset = OFFSET3)] //3, remained same somehow
 fn close_arena(param_1: usize) {
     GAME_INFO.arena_id.store_str(None, Ordering::SeqCst);
     original!()(param_1);
+}
+
+static OFFSET3_SEARCH_CODE: &[u8] = &[ //exact
+    0xff, 0x83, 0x01, 0xd1, //.text:00000071000D7140                 SUB             SP, SP, #0x60
+    0xf6, 0x57, 0x03, 0xa9, //.text:00000071000D7144                 STP             X22, X21, [SP,#0x50+var_20]
+    0xf4, 0x4f, 0x04, 0xa9, //.text:00000071000D7148                 STP             X20, X19, [SP,#0x50+var_10]
+    0xfd, 0x7b, 0x05, 0xa9, //.text:00000071000D714C                 STP             X29, X30, [SP,#0x50+var_s0]
+    0xfd, 0x43, 0x01, 0x91, //.text:00000071000D7150                 ADD             X29, SP, #0x50
+    0x15, 0x44, 0x40, 0xf9  //.text:00000071000D7154                 LDR             X21, [X0,#0x88]
+                            //.text:00000071000D7158                 MOV             X19, X0
+                            //.text:00000071000D715C                 CBZ             X21, loc_71000D71B4
+                            //.text:00000071000D7160                 LDR             X8, [X21,#0x10]
+                            //.text:00000071000D7164                 CBZ             X8, loc_71000D71B4
+                            //.text:00000071000D7168                 LDP             X8, X20, [X21]
+                            //.text:00000071000D716C                 LDR             X9, [X8,#8]
+                            //.text:00000071000D7170                 LDR             X10, [X20]
+                            //.text:00000071000D7174                 STR             X9, [X10,#8]
+                            //.text:00000071000D7178                 LDR             X8, [X8,#8]
+                            //.text:00000071000D717C                 CMP             X20, X21
+                            //.text:00000071000D7180                 STR             X10, [X8]
+                            //.text:00000071000D7184                 STR             XZR, [X21,#0x10]
+                            //.text:00000071000D7188                 B.EQ            loc_71000D71B4
+];
+
+fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|window| window == needle)
 }
 
 pub static mut FIGHTER_MANAGER_ADDR: usize = 0;
@@ -255,6 +320,18 @@ pub fn main() {
             &mut FIGHTER_MANAGER_ADDR,
             "_ZN3lib9SingletonIN3app14FighterManagerEE9instance_E\u{0}".as_bytes().as_ptr(),
         );
+        let text_ptr = getRegionAddress(Region::Text) as *const u8;
+        let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
+        let text = std::slice::from_raw_parts(text_ptr, text_size);
+        if let Some(offset) = find_subsequence(text, OFFSET1_SEARCH_CODE) {
+            OFFSET1 = offset + 0x38;
+        }
+        if let Some(offset) = find_subsequence(text, OFFSET2_SEARCH_CODE) {
+            OFFSET2 = offset - 0xc;
+        }
+        if let Some(offset) = find_subsequence(text, OFFSET3_SEARCH_CODE) {
+            OFFSET3 = offset;
+        }
     }
     skyline::install_hooks!(
         some_strlen_thing,
