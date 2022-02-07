@@ -1,4 +1,5 @@
 #![feature(proc_macro_hygiene, asm)]
+#![feature(llvm_asm)]
 
 use skyline::hooks::{getRegionAddress, Region};
 use skyline::from_c_str;
@@ -13,7 +14,7 @@ use smash::lib::lua_const::*;
 use smash::lua2cpp::{L2CFighterCommon, L2CFighterCommon_status_pre_Rebirth, L2CFighterCommon_status_pre_Entry, L2CFighterCommon_sub_damage_uniq_process_init};
 use smash::lib::L2CValue;
 
-use smush_discord_shared::Info;
+use smush_info_shared::Info;
 
 mod conversions;
 use conversions::{kind_to_char, stage_id_to_stage};
@@ -144,7 +145,7 @@ fn start_server() -> Result<(), i64> {
         } else {
             println!("Invalid magic")
         }*/
-        
+
         dbg_err!(close(tcp_socket));
     }
 
@@ -160,7 +161,7 @@ pub fn offset_to_addr(offset: usize) -> *const () {
 #[inline(always)]
 fn get_fp() -> *const u64 {
     let r;
-    unsafe { asm!("mov $0, x29" : "=r"(r) ::: "volatile") }
+    unsafe { llvm_asm!("mov $0, x29" : "=r"(r) ::: "volatile") }
     r
 }
 
@@ -256,7 +257,7 @@ pub unsafe fn set_player_information(module_accessor: &mut app::BattleObjectModu
     let player_num = entry_id as usize;
     let mgr = *(FIGHTER_MANAGER_ADDR as *mut *mut app::FighterManager);
     let fighter_information = FighterManager::get_fighter_information(
-        mgr, 
+        mgr,
         app::FighterEntryID(entry_id)
     ) as *mut app::FighterInformation;
 
