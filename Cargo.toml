@@ -1,6 +1,6 @@
 [package]
 name = "smush_info"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["jam1garner <jam1.mcleod@hotmail.com>"]
 edition = "2018"
 
@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 [dependencies]
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
-smush_discord_shared = { git = "https://github.com/jam1garner/smush_info_shared.git" }
+smush_info_shared = { git = "https://github.com/leeevye/smush_info_shared.git", branch = "feature(const_fn_union)" }
 serde_json = "1"
 lazy_static = "1.4"
 
