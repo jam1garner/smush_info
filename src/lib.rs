@@ -1,4 +1,4 @@
-#![feature(proc_macro_hygiene, asm)]
+#![feature(proc_macro_hygiene)]
 
 use skyline::hooks::{getRegionAddress, Region};
 use skyline::from_c_str;
@@ -13,7 +13,7 @@ use smash::lib::lua_const::*;
 use smash::lua2cpp::{L2CFighterCommon, L2CFighterCommon_status_pre_Rebirth, L2CFighterCommon_status_pre_Entry, L2CFighterCommon_sub_damage_uniq_process_init};
 use smash::lib::L2CValue;
 
-use smush_discord_shared::Info;
+use smush_info_shared::Info;
 
 mod conversions;
 use conversions::{kind_to_char, stage_id_to_stage};
@@ -160,7 +160,7 @@ pub fn offset_to_addr(offset: usize) -> *const () {
 #[inline(always)]
 fn get_fp() -> *const u64 {
     let r;
-    unsafe { asm!("mov $0, x29" : "=r"(r) ::: "volatile") }
+    unsafe { std::arch::asm!("mov {0}, x29",out(reg) r) }
     r
 }
 
